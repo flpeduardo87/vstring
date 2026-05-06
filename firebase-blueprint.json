@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "Customer": {
+      "title": "Cliente",
+      "description": "Base de clientes da oficina",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "racket_brand": { "type": "string" },
+        "racket_model": { "type": "string" },
+        "string_pattern": { "type": "string" },
+        "observations": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "InventoryItem": {
+      "title": "Item de Estoque",
+      "description": "Produtos e cordas em estoque",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "barcode": { "type": "string" },
+        "type": { "type": "string", "enum": ["rolo", "unidade"] },
+        "quantity": { "type": "number" },
+        "low_stock_alert": { "type": "number" },
+        "price": { "type": "number" },
+        "margin": { "type": "number" },
+        "sell_price": { "type": "number" },
+        "total_meters": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "category"]
+    },
+    "ServiceRecord": {
+      "title": "Registro de Serviço",
+      "description": "Serviços de encordoamento realizados",
+      "type": "object",
+      "properties": {
+        "customer_id": { "type": "string" },
+        "customer_name": { "type": "string" },
+        "racket_model": { "type": "string" },
+        "string_pattern": { "type": "string" },
+        "mains_description": { "type": "string" },
+        "mains_tension": { "type": "number" },
+        "crosses_description": { "type": "string" },
+        "crosses_tension": { "type": "number" },
+        "pre_stretch": { "type": "number" },
+        "knots": { "type": "string" },
+        "machine": { "type": "string" },
+        "labor_price": { "type": "number" },
+        "price": { "type": "number" },
+        "status": { "type": "string", "enum": ["pendente", "pronto", "entregue"] },
+        "payment_status": { "type": "string", "enum": ["pendente", "pago"] },
+        "payment_method": { "type": "string" },
+        "extra_products": { "type": "array" },
+        "date": { "type": "string", "format": "date-time" },
+        "effective_pickup_date": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "TeamMember": {
+      "title": "Membro da Equipe",
+      "description": "Colaboradores da Pro Stringer",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "role"]
+    },
+    "Sale": {
+      "title": "Venda",
+      "description": "Venda rápida realizada no PDV",
+      "type": "object",
+      "properties": {
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "payment_method": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["items", "total"]
+    }
+  },
+  "firestore": {
+    "customers": { "schema": "Customer", "description": "Lista de clientes" },
+    "inventory": { "schema": "InventoryItem", "description": "Itens de estoque" },
+    "services": { "schema": "ServiceRecord", "description": "Histórico de serviços" },
+    "team": { "schema": "TeamMember", "description": "Membros da equipe" },
+    "sales": { "schema": "Sale", "description": "Vendas rápidas no PDV" }
+  }
+}
