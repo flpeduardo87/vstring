@@ -1,0 +1,6 @@
+{
+  "name": "VSTRING",
+  "description": "Sistema especializado em encordoamento de raquetes e performance para tenistas.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}

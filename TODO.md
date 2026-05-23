@@ -1,0 +1,3 @@
+- [x] Implementar login simples com usuário e senha em `src/components/Auth.tsx`
+- [x] Ajustar fonte dos registros do cadastro de clientes para branco (melhor contraste)
+- [ ] Validar visualmente contraste na aba Clientes
