@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, runTransaction } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ServiceOrder } from './ServiceOrder';
 import { ServiceLabel } from './ServiceLabel';
-import { BarcodeScanner } from './BarcodeScanner';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
@@ -29,15 +28,16 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [scannerTarget, setScannerTarget] = useState<'mains' | 'crosses' | 'extra' | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [previewService, setPreviewService] = useState<any>(null);
   const [printingService, setPrintingService] = useState<any>(null);
   const [formData, setFormData] = useState({
     customerId: '',
+    racketId: '',
+    racketBrand: '',
     racketModel: '',
     stringPattern: '16x19',
+    racketObservations: '',
     mainsId: '',
     mainsDescription: '',
     mainsTension: '',
@@ -51,6 +51,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
     status: 'pendente',
     paymentStatus: 'pendente',
     paymentMethod: 'Pix',
+    observations: '',
     extraProducts: [] as any[]
   });
 
@@ -65,7 +66,12 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
     const unsubInventory = onSnapshot(qInventory, (s) => setInventory(s.docs.map(d => ({ id: d.id, ...d.data() }))), (err) => handleFirestoreError(err, OperationType.LIST, 'inventory'));
 
     if (initialFilter) {
-      setStatusFilter(initialFilter);
+      if (initialFilter === 'new') {
+        setIsDialogOpen(true);
+        setEditingServiceId(null);
+      } else {
+        setStatusFilter(initialFilter);
+      }
     }
 
     return () => {
@@ -126,111 +132,6 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
     const finalPrice = labor + totalStringPrice + extraProductsPrice;
     setFormData(prev => ({ ...prev, price: finalPrice.toFixed(2) }));
   }, [formData.laborPrice, formData.mainsId, formData.crossesId, formData.extraProducts, inventory]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const customer = customers.find(c => c.id === formData.customerId);
-    if (!customer) return toast.error('Selecione um cliente');
-
-    try {
-      const serviceData = {
-        customer_id: formData.customerId,
-        customer_name: customer.name,
-        racket_model: formData.racketModel || '',
-        string_pattern: formData.stringPattern || '',
-        mains_id: formData.mainsId || 'manual',
-        mains_description: formData.mainsDescription || '',
-        mains_tension: Number(formData.mainsTension) || 0,
-        crosses_id: formData.crossesId || 'manual',
-        crosses_description: formData.crossesDescription || '',
-        crosses_tension: Number(formData.crossesTension) || 0,
-        pre_stretch: Number(formData.preStretch) || 0,
-        knots: formData.knots || '4 nós',
-        labor_price: Number(formData.laborPrice) || 0,
-        extra_products: formData.extraProducts || [],
-        price: Number(formData.price) || 0,
-        status: formData.status || 'pendente',
-        payment_status: formData.paymentStatus || 'pendente',
-        payment_method: formData.paymentMethod || 'Pix',
-        updated_at: serverTimestamp()
-      };
-
-      if (editingServiceId) {
-        await updateDoc(doc(db, 'services', editingServiceId), serviceData);
-        toast.success('Serviço atualizado!');
-      } else {
-        const fullServiceData = {
-          ...serviceData,
-          date: serverTimestamp(),
-          created_at: serverTimestamp()
-        };
-
-        const deductFromInventory = async (id: string, amount: number) => {
-          if (!id || id === 'manual') return;
-          const itemDoc = await getDoc(doc(db, 'inventory', id));
-          if (itemDoc.exists()) {
-            const currentQty = itemDoc.data().quantity || 0;
-            await updateDoc(doc(db, 'inventory', id), {
-              quantity: Math.max(0, currentQty - amount),
-              updated_at: serverTimestamp()
-            });
-          }
-        };
-
-        if (formData.mainsId) {
-          const item = inventory.find(i => i.id === formData.mainsId);
-          const isHybrid = formData.mainsId !== formData.crossesId;
-          const amount = item?.type === 'rolo' ? (isHybrid ? 6 : 12) : (isHybrid ? 0.5 : 1);
-          await deductFromInventory(formData.mainsId, amount);
-        }
-        if (formData.crossesId && formData.crossesId !== formData.mainsId) {
-          const item = inventory.find(i => i.id === formData.crossesId);
-          const amount = item?.type === 'rolo' ? 6 : 0.5;
-          await deductFromInventory(formData.crossesId, amount);
-        }
-
-        for (const p of formData.extraProducts) {
-          await deductFromInventory(p.productId, p.quantity);
-        }
-
-        const docRef = await addDoc(collection(db, 'services'), fullServiceData);
-        toast.success('Serviço registrado com sucesso!');
-        
-        if (formData.status === 'finalizado') {
-          notifyCustomer({ ...fullServiceData, id: docRef.id });
-        }
-
-        setTimeout(() => {
-          downloadOS(docRef.id);
-        }, 800);
-      }
-
-      setIsDialogOpen(false);
-      setEditingServiceId(null);
-      setFormData({
-        customerId: '',
-        racketModel: '',
-        stringPattern: '16x19',
-        mainsId: '',
-        mainsDescription: '',
-        mainsTension: '',
-        crossesId: '',
-        crossesDescription: '',
-        crossesTension: '',
-        preStretch: '0',
-        knots: '4 nós',
-        laborPrice: '55',
-        price: '',
-        status: 'pendente',
-        paymentStatus: 'pendente',
-        paymentMethod: 'Pix',
-        extraProducts: []
-      });
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao salvar serviço. Verifique suas permissões.');
-    }
-  };
 
   const handleStatusChange = async (id: string, field: 'status' | 'paymentStatus', newValue: string) => {
     try {
@@ -347,7 +248,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
       cleanPhone = '55' + cleanPhone;
     }
     
-    const message = encodeURIComponent(`Olá ${customer.name}! Sua raquete ${service.racket_model} está PRONTA! 🎾\n\nJá pode passar aqui na VSTRING para retirá-la. Estamos te aguardando!\n\nAtt,\nMagnum Victor - VSTRING`);
+    const message = encodeURIComponent(`Olá ${customer.name.toUpperCase()}! Sua raquete ${service.racket_model.toUpperCase()} está PRONTA! 🎾 Já pode passar aqui na VSTRING para retirá-la. Estamos te aguardando! Att, Victor`);
     
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
     window.open(whatsappUrl, '_blank');
@@ -357,8 +258,11 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
     setEditingServiceId(service.id);
     setFormData({
       customerId: service.customer_id,
+      racketId: service.racket_id || '',
+      racketBrand: service.racket_brand || '',
       racketModel: service.racket_model,
       stringPattern: service.string_pattern,
+      racketObservations: service.racket_observations || '',
       mainsId: service.mains_id || 'manual',
       mainsDescription: service.mains_description || '',
       mainsTension: (service.mains_tension || '').toString(),
@@ -372,6 +276,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
       status: service.status || 'pendente',
       paymentStatus: service.payment_status || 'pendente',
       paymentMethod: service.payment_method || 'Pix',
+      observations: service.observations || '',
       extraProducts: service.extra_products || []
     });
     setIsDialogOpen(true);
@@ -389,50 +294,6 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
     }
   };
 
-  const handleBarcodeScan = (code: string) => {
-    const item = inventory.find(i => i.barcode === code);
-    if (!item) {
-      toast.error('Produto não encontrado no estoque.');
-      return;
-    }
-
-    if (scannerTarget === 'mains') {
-      if (item.category !== 'Corda') return toast.error('Este item não é uma corda.');
-      setFormData({...formData, mainsId: item.id, mainsDescription: item.description});
-      toast.success(`Corda selecionada: ${item.description}`);
-    } else if (scannerTarget === 'crosses') {
-      if (item.category !== 'Corda') return toast.error('Este item não é uma corda.');
-      setFormData({...formData, crossesId: item.id, crossesDescription: item.description});
-      toast.success(`Corda selecionada: ${item.description}`);
-    } else if (scannerTarget === 'extra') {
-      if (item.category === 'Corda') return toast.error('Use os campos de corda para encordoamento.');
-      
-      const margin = Number(item.margin || 110);
-      const sellPrice = Number(item.price) * (1 + margin / 100);
-      const exists = formData.extraProducts.find(p => p.productId === item.id);
-      
-      if (exists) {
-        setFormData({
-          ...formData,
-          extraProducts: formData.extraProducts.map(p => 
-            p.productId === item.id ? { ...p, quantity: p.quantity + 1 } : p
-          )
-        });
-      } else {
-        setFormData({
-          ...formData,
-          extraProducts: [...formData.extraProducts, {
-            productId: item.id,
-            description: item.description,
-            quantity: 1,
-            price: sellPrice
-          }]
-        });
-      }
-      toast.success(`Produto adicionado: ${item.description}`);
-    }
-  };
-
   const filteredServices = services.filter(s => {
     const matchesSearch = (s.customer_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
                          (s.racket_model?.toLowerCase() || '').includes(searchTerm.toLowerCase());
@@ -442,10 +303,10 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-sidebar/50 p-6 rounded-xl border border-white/5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Serviços</h2>
-          <p className="text-muted-foreground">Controle de encordoamentos e etiquetas inteligentes.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Serviços</h2>
+          <p className="text-slate-200">Controle de encordoamentos e etiquetas inteligentes.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -455,7 +316,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
         }}>
           <DialogTrigger
             render={
-              <Button className="bg-primary hover:bg-primary/80 text-primary-foreground">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                 <Plus className="mr-2 h-4 w-4" /> Novo Serviço
               </Button>
             }
@@ -465,6 +326,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
               <DialogTitle>{editingServiceId ? 'Editar Serviço' : 'Registrar Novo Encordoamento'}</DialogTitle>
             </DialogHeader>
             <ServiceForm 
+              key={editingServiceId || 'new'}
               customers={customers}
               inventory={inventory}
               onCancel={() => {
@@ -473,12 +335,14 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
               }}
               onSubmit={async (data) => {
                 try {
-                  const customer = customers.find(c => c.id === data.customerId);
                   const serviceData = {
                     customer_id: data.customerId,
-                    customer_name: customer.name,
+                    customer_name: data.customer_name || 'Cliente Desconhecido',
+                    racket_id: data.racketId || '',
+                    racket_brand: data.racketBrand || '',
                     racket_model: data.racketModel || '',
                     string_pattern: data.stringPattern || '',
+                    racket_observations: data.racketObservations || '',
                     mains_id: data.mainsId || 'manual',
                     mains_description: data.mainsDescription || '',
                     mains_tension: Number(data.mainsTension) || 0,
@@ -493,6 +357,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
                     status: data.status || 'pendente',
                     payment_status: data.paymentStatus || 'pendente',
                     payment_method: data.paymentMethod || 'Pix',
+                    observations: data.observations || '',
                     updated_at: serverTimestamp()
                   };
 
@@ -508,21 +373,56 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
                     setIsDialogOpen(false);
                     setEditingServiceId(null);
                   } else {
-                    const fullServiceData = {
-                      ...serviceData,
-                      date: serverTimestamp(),
-                      created_at: serverTimestamp()
-                    };
+                    // Use a transaction to get the next service order number
+                    let docRef: any = null;
+                    let savedService: any = null;
 
+                    await runTransaction(db, async (transaction) => {
+                      const counterRef = doc(db, 'counters', 'service_order');
+                      const counterDoc = await transaction.get(counterRef);
+                      
+                      let nextNumber = 0;
+                      if (counterDoc.exists()) {
+                        nextNumber = counterDoc.data().count;
+                      }
+                      
+                      const formattedNumber = `#${nextNumber.toString().padStart(4, '0')}`;
+                      
+                      const fullServiceData = {
+                        ...serviceData,
+                        service_number: formattedNumber,
+                        date: serverTimestamp(),
+                        created_at: serverTimestamp()
+                      };
+
+                      docRef = doc(collection(db, 'services'));
+                      transaction.set(docRef, fullServiceData);
+                      transaction.set(counterRef, { count: nextNumber + 1 });
+                      
+                      savedService = { 
+                        ...fullServiceData, 
+                        id: docRef.id,
+                        date: { toDate: () => new Date() }, // Mock for ServiceLabel
+                        created_at: { toDate: () => new Date() }
+                      };
+                    });
+
+                    toast.success('Serviço registrado com sucesso!');
+                    
+                    // Deduct inventory after successful service creation
                     const deductFromInventory = async (id: string, amount: number) => {
                       if (!id || id === 'manual') return;
-                      const itemDoc = await getDoc(doc(db, 'inventory', id));
-                      if (itemDoc.exists()) {
-                        const currentQty = itemDoc.data().quantity || 0;
-                        await updateDoc(doc(db, 'inventory', id), {
-                          quantity: Math.max(0, currentQty - amount),
-                          updated_at: serverTimestamp()
-                        });
+                      try {
+                        const itemDoc = await getDoc(doc(db, 'inventory', id));
+                        if (itemDoc.exists()) {
+                          const currentQty = itemDoc.data().quantity || 0;
+                          await updateDoc(doc(db, 'inventory', id), {
+                            quantity: Math.max(0, currentQty - amount),
+                            updated_at: serverTimestamp()
+                          });
+                        }
+                      } catch (err) {
+                        console.error(`Error deducting inventory for ${id}:`, err);
                       }
                     };
 
@@ -542,32 +442,23 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
                       await deductFromInventory(p.productId, p.quantity);
                     }
 
-                    const docRef = await addDoc(collection(db, 'services'), fullServiceData);
-                    toast.success('Serviço registrado com sucesso!');
                     setIsDialogOpen(false);
                     setEditingServiceId(null);
-                    
-                    const savedService = { ...fullServiceData, id: docRef.id };
                     
                     if (data.status === 'finalizado') {
                       notifyCustomer(savedService);
                     }
 
-                    // For printing, we pass the service data directly to avoid waiting for state update
                     setTimeout(() => {
                       downloadLabel(docRef.id, savedService);
                     }, 500);
                   }
                 } catch (error) {
                   console.error(error);
-                  toast.error('Erro ao salvar serviço.');
+                  toast.error('Erro ao salvar serviço. Tente novamente.');
                 }
               }}
               initialData={editingServiceId ? services.find(s => s.id === editingServiceId) : undefined}
-              onScannerOpen={(target) => {
-                setScannerTarget(target);
-                setIsScannerOpen(true);
-              }}
             />
           </DialogContent>
         </Dialog>
@@ -600,42 +491,46 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-white/10 overflow-x-auto">
+          <div className="rounded-md border border-slate-100 overflow-x-auto">
             <Table>
-              <TableHeader className="bg-sidebar/50">
+              <TableHeader className="bg-slate-700 text-white">
                 <TableRow>
-                  <TableHead className="text-foreground">Data</TableHead>
-                  <TableHead className="text-foreground">Cliente</TableHead>
-                  <TableHead className="text-foreground">Raquete</TableHead>
-                  <TableHead className="text-foreground">Tensão (lbs)</TableHead>
-                  <TableHead className="text-foreground">Status Serviço</TableHead>
-                  <TableHead className="text-foreground">Pagamento</TableHead>
-                  <TableHead className="text-right text-foreground">Ações</TableHead>
+                  <TableHead className="text-white">OS</TableHead>
+                  <TableHead className="text-white">Data</TableHead>
+                  <TableHead className="text-white">Cliente</TableHead>
+                  <TableHead className="text-white">Raquete</TableHead>
+                  <TableHead className="text-white">Tensão (lbs)</TableHead>
+                  <TableHead className="text-white">Status Serviço</TableHead>
+                  <TableHead className="text-white">Pagamento</TableHead>
+                  <TableHead className="text-right text-white">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredServices.length > 0 ? (
                   filteredServices.map((service) => (
                     <TableRow key={service.id}>
-                      <TableCell className="text-sm">
+                      <TableCell className="font-mono font-bold text-white">
+                        {service.service_number || `#${service.id.substring(0, 4)}`}
+                      </TableCell>
+                      <TableCell className="text-sm text-white">
                         {service.date ? format(service.date.toDate(), 'dd/MM/yy') : '-'}
                       </TableCell>
-                      <TableCell className="font-medium">{service.customer_name}</TableCell>
-                      <TableCell>{service.racket_model}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100">
+                      <TableCell className="font-medium text-white">{service.customer_name}</TableCell>
+                      <TableCell className="text-white">{(service.racket_brand || '')} {service.racket_model}</TableCell>
+                      <TableCell className="text-white">
+                        <Badge variant="outline" className="bg-blue-50 text-black border-blue-100">
                           {service.mains_tension} / {service.crosses_tension}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-white">
                         {service.status === 'finalizado' ? (
-                          <Badge className="bg-emerald-500 hover:bg-emerald-600">Finalizado</Badge>
+                          <Badge className="bg-emerald-500 text-white hover:bg-emerald-600">Finalizado</Badge>
                         ) : (
-                          <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-200">Em andamento</Badge>
+                          <Badge variant="secondary" className="bg-amber-100 text-slate-800 hover:bg-amber-200">Em andamento</Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={service.payment_status === 'pago' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}>
+                      <TableCell className="text-white">
+                        <Badge variant="outline" className={service.payment_status === 'pago' ? 'bg-emerald-50 text-slate-800 border-emerald-100' : 'bg-red-50 text-slate-800 border-red-100'}>
                           {service.payment_status === 'pago' ? 'Pago' : 'Pendente'}
                         </Badge>
                       </TableCell>
@@ -645,7 +540,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 h-8 px-2"
+                              className="bg-emerald-50 text-slate-800 hover:bg-emerald-100 border border-emerald-100 h-8 px-2"
                               onClick={() => handleStatusChange(service.id, 'status', 'finalizado')}
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
@@ -653,22 +548,22 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
                             </Button>
                           )}
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewService(service)}>
-                            <Eye className="h-4 w-4 text-slate-400" />
+                            <Eye className="h-4 w-4 text-white" />
                           </Button>
                           <Button variant="ghost" size="icon" title="Imprimir OS Completa (A5)" onClick={() => downloadOS(service.id)}>
-                            <Printer className="h-4 w-4 text-slate-800" />
+                            <Printer className="h-4 w-4 text-white" />
                           </Button>
                           <Button variant="ghost" size="icon" title="Imprimir Etiqueta Raquete (1/3 A4)" onClick={() => downloadLabel(service.id)}>
-                            <Tag className="h-4 w-4 text-blue-600" />
+                            <Tag className="h-4 w-4 text-white" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => notifyCustomer(service)}>
-                            <MessageSquare className="h-4 w-4 text-emerald-600" />
+                            <MessageSquare className="h-4 w-4 text-white" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(service)}>
-                            <Edit2 className="h-4 w-4 text-blue-600" />
+                            <Edit2 className="h-4 w-4 text-white" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(service.id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-white" />
                           </Button>
                         </div>
                       </TableCell>
@@ -676,7 +571,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-10 text-white">
                       Nenhum serviço encontrado.
                     </TableCell>
                   </TableRow>
@@ -687,12 +582,6 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
         </CardContent>
       </Card>
 
-      <BarcodeScanner 
-        isOpen={isScannerOpen} 
-        onClose={() => setIsScannerOpen(false)} 
-        onScan={handleBarcodeScan} 
-      />
-
       {/* Preview Dialog */}
       <Dialog open={!!previewService} onOpenChange={() => setPreviewService(null)}>
         <DialogContent className="sm:max-w-[850px] p-0 overflow-hidden border-none bg-transparent shadow-none">
@@ -700,7 +589,7 @@ export function Services({ initialFilter }: { initialFilter?: string | null }) {
             {previewService && <ServiceOrder service={previewService} />}
             <div className="flex gap-4 p-4 bg-slate-50 border-t items-center justify-end">
               <Button variant="outline" onClick={() => setPreviewService(null)}>Fechar</Button>
-              <Button className="bg-blue-600" onClick={() => { downloadOS(previewService.id); setPreviewService(null); }}>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => { downloadOS(previewService.id); setPreviewService(null); }}>
                 <Printer className="mr-2 h-4 w-4" /> Baixar OS
               </Button>
             </div>

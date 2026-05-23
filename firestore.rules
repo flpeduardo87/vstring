@@ -36,30 +36,41 @@ service cloud.firestore {
       return data.keys().hasAll(['name']) &&
              data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
              (data.get('email', '') is string && data.get('email', '').size() <= 200) &&
-             (data.get('phone', '') is string && data.get('phone', '').size() <= 20) &&
-             (data.get('racket_model', '') is string && data.get('racket_model', '').size() <= 200);
+             (data.get('phone', '') is string && data.get('phone', '').size() <= 50) &&
+             (data.get('created_at', null) == null || data.get('created_at', null) is timestamp) &&
+             (data.get('updated_at', null) == null || data.get('updated_at', null) is timestamp);
     }
 
     function isValidInventory(data) {
-      return data.keys().hasAll(['description', 'category', 'quantity', 'price']) &&
-             data.description is string && data.description.size() > 0 && data.description.size() <= 300 &&
-             data.category is string && data.category in ['Corda', 'Produto'] &&
-             data.quantity is number &&
-             data.price is number;
+      return (data.get('description', '') is string) &&
+             (data.get('category', 'Corda') in ['Corda', 'Produto']) &&
+             (data.get('quantity', 0) is number) &&
+             (data.get('price', 0) is number);
     }
 
     function isValidService(data) {
       return data.keys().hasAll(['customer_id', 'customer_name', 'status', 'racket_model']) &&
-             data.customer_id is string && isValidId(data.customer_id) &&
+             data.customer_id is string &&
              data.customer_name is string && data.customer_name.size() <= 200 &&
-             data.status in ['pendente', 'finalizado'] &&
-             data.racket_model is string && data.racket_model.size() <= 200;
+             data.status is string &&
+             data.racket_model is string && data.racket_model.size() <= 200 &&
+             (data.get('service_number', '') is string);
     }
 
     function isValidSale(data) {
       return data.keys().hasAll(['total', 'items', 'date']) &&
              data.total is number &&
              data.items is list && data.items.size() > 0;
+    }
+
+    function isValidRacket(data) {
+      return data.keys().hasAll(['brand', 'model']) &&
+             data.brand is string && data.brand.size() > 0 && data.brand.size() <= 100 &&
+             data.model is string && data.model.size() > 0 && data.model.size() <= 100 &&
+             (data.get('string_pattern', '') is string) &&
+             (data.get('observations', '') is string) &&
+             (data.get('created_at', null) == null || data.get('created_at', null) is timestamp) &&
+             (data.get('updated_at', null) == null || data.get('updated_at', null) is timestamp);
     }
 
     // COLLECTIONS
@@ -69,6 +80,13 @@ service cloud.firestore {
       allow create: if isOwner() && isValidCustomer(incoming());
       allow update: if isOwner() && isValidCustomer(incoming());
       allow delete: if isOwner();
+
+      match /rackets/{racketId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner() && isValidRacket(incoming());
+        allow update: if isOwner() && isValidRacket(incoming());
+        allow delete: if isOwner();
+      }
     }
 
     match /inventory/{itemId} {
@@ -96,6 +114,10 @@ service cloud.firestore {
     match /settings/{docId} {
       allow read: if isSignedIn();
       allow write: if isOwner();
+    }
+
+    match /counters/{docId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

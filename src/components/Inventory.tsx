@@ -112,10 +112,10 @@ export function Inventory() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-sidebar/50 p-6 rounded-xl border border-white/5">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Cadastro de Itens</h2>
-          <p className="text-muted-foreground">Gerencie seu catálogo de cordas e produtos.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Cadastro de Itens</h2>
+          <p className="text-slate-200">Gerencie seu catálogo de cordas e produtos.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger
@@ -134,7 +134,7 @@ export function Inventory() {
                   sellPrice: '',
                   totalMeters: '200'
                 }); 
-              }} className="bg-primary hover:bg-primary/80 text-primary-foreground">
+              }} className="bg-primary text-primary-foreground hover:bg-primary/90">
                 <Plus className="mr-2 h-4 w-4" /> Novo Item
               </Button>
             }
@@ -288,7 +288,7 @@ export function Inventory() {
                   placeholder="Calculado automaticamente"
                   className="font-bold text-blue-700 bg-blue-50"
                 />
-                  <p className="text-[10px] text-muted-foreground italic">Você pode digitar o preço final para calcular a margem automaticamente.</p>
+                <p className="text-[10px] text-slate-500 italic">Você pode digitar o preço final para calcular a margem automaticamente.</p>
               </div>
               
               {formData.price && formData.margin && (
@@ -300,7 +300,7 @@ export function Inventory() {
                 </div>
               )}
               <DialogFooter>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+                <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
                   {editingItem ? 'Salvar Alterações' : 'Adicionar'}
                 </Button>
               </DialogFooter>
@@ -322,50 +322,50 @@ export function Inventory() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border border-white/10 overflow-x-auto">
+          <div className="rounded-md border border-slate-100 overflow-x-auto">
             <Table>
-              <TableHeader className="bg-sidebar/50">
+              <TableHeader className="bg-slate-700 text-white">
                 <TableRow>
-                  <TableHead className="text-foreground">Categoria</TableHead>
-                  <TableHead className="text-foreground">Descrição</TableHead>
-                  <TableHead className="text-foreground">Cód. Barras</TableHead>
-                  <TableHead className="text-foreground">Quantidade</TableHead>
-                  <TableHead className="text-foreground">Custo</TableHead>
-                  <TableHead className="text-foreground">Venda</TableHead>
-                  <TableHead className="text-foreground">Status</TableHead>
-                  <TableHead className="text-right text-foreground">Ações</TableHead>
+                  <TableHead className="text-white">Categoria</TableHead>
+                  <TableHead className="text-white">Descrição</TableHead>
+                  <TableHead className="text-white">Cód. Barras</TableHead>
+                  <TableHead className="text-white">Quantidade</TableHead>
+                  <TableHead className="text-white">Custo</TableHead>
+                  <TableHead className="text-white">Venda</TableHead>
+                  <TableHead className="text-white">Status</TableHead>
+                  <TableHead className="text-right text-white">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredItems.length > 0 ? (
                   filteredItems.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell>
-                        <Badge variant="secondary" className="bg-primary/20 text-primary">{item.category || 'Corda'}</Badge>
+                      <TableCell className="text-white">
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-700">{item.category || 'Corda'}</Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{item.description}</div>
+                      <TableCell className="text-white">
+                        <div className="font-medium text-white">{item.description}</div>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
+                      <TableCell className="text-xs text-white font-mono">
                         {item.barcode || '-'}
                       </TableCell>
-                      <TableCell className="font-mono">
+                      <TableCell className="font-mono text-white">
                         {item.quantity} {item.type === 'rolo' ? 'm' : 'un'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-white">
                         R$ {Number(item.price || 0).toFixed(2)}
                       </TableCell>
-                      <TableCell className="font-bold text-blue-700">
+                      <TableCell className="font-bold text-white">
                         R$ {(Number(item.price || 0) * (1 + Number(item.margin || 110) / 100)).toFixed(2)}
-                        <div className="text-[10px] font-normal text-muted-foreground">{item.margin || 110}% margem</div>
+                        <div className="text-[10px] font-normal text-white">{item.margin || 110}% margem</div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-white">
                         {item.quantity <= (item.low_stock_alert || 0) ? (
-                          <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-red-200 flex w-fit gap-1">
-                            <AlertTriangle className="h-3 w-3" /> Baixo
+                          <Badge className="bg-red-100 text-slate-800 hover:bg-red-200 border-red-200 flex w-fit gap-1">
+                            <AlertTriangle className="h-3 w-3 text-slate-800" /> Baixo
                           </Badge>
                         ) : (
-                          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200">OK</Badge>
+                          <Badge className="bg-emerald-100 text-slate-800 hover:bg-emerald-200 border-emerald-200">OK</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -387,10 +387,10 @@ export function Inventory() {
                             }); 
                             setIsDialogOpen(true); 
                           }}>
-                            <Edit2 className="h-4 w-4 text-blue-600" />
+                            <Edit2 className="h-4 w-4 text-white" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-white" />
                           </Button>
                         </div>
                       </TableCell>
@@ -398,7 +398,7 @@ export function Inventory() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-10 text-white">
                       Nenhum item no estoque.
                     </TableCell>
                   </TableRow>

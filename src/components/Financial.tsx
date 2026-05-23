@@ -188,8 +188,8 @@ export function Financial() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Financeiro Detalhado</h2>
-          <p className="text-muted-foreground">Análise de lucratividade e saúde financeira.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Financeiro Detalhado</h2>
+          <p className="text-slate-200">Análise de lucratividade e saúde financeira.</p>
         </div>
         <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -201,11 +201,11 @@ export function Financial() {
         <Card className="shadow-sm border-slate-200 overflow-hidden">
           <div className="h-1 bg-blue-600" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Receita Total (Mês)</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Receita Total (Mês)</CardTitle>
             <DollarSign className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-foreground">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            <div className="text-3xl font-black text-white">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
             <div className="flex items-center mt-2">
               {revenueTrend >= 0 ? (
                 <ArrowUpRight className="h-4 w-4 text-emerald-500 mr-1" />
@@ -222,36 +222,36 @@ export function Financial() {
         <Card className="shadow-sm border-slate-200 overflow-hidden">
           <div className="h-1 bg-emerald-600" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Lucro Líquido</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Lucro Líquido</CardTitle>
             <TrendingUp className="h-5 w-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-foreground">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground mt-2 font-medium">Margem de Lucro: <span className="text-emerald-600 font-bold">{totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0}%</span></p>
+            <div className="text-3xl font-black text-white">R$ {totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            <p className="text-xs text-slate-400 mt-2 font-medium">Margem de Lucro: <span className="text-emerald-600 font-bold">{totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0}%</span></p>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm border-slate-200 overflow-hidden">
           <div className="h-1 bg-amber-600" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Custo de Materiais</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Custo de Materiais</CardTitle>
             <Wallet className="h-5 w-5 text-amber-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-foreground">R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-            <p className="text-xs text-muted-foreground mt-2 font-medium">Representa {totalRevenue > 0 ? ((totalCost / totalRevenue) * 100).toFixed(1) : 0}% da receita</p>
+            <div className="text-3xl font-black text-white">R$ {totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            <p className="text-xs text-slate-400 mt-2 font-medium">Representa {totalRevenue > 0 ? ((totalCost / totalRevenue) * 100).toFixed(1) : 0}% da receita</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm border-slate-200 overflow-hidden">
           <div className="h-1 bg-purple-600" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Média por Serviço</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Média por Serviço</CardTitle>
             <Percent className="h-5 w-5 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-black text-foreground">R$ {currentMonthTotalServices.length + currentMonthSales.length > 0 ? (totalRevenue / (currentMonthTotalServices.length + currentMonthSales.length)).toFixed(2) : '0.00'}</div>
-            <p className="text-xs text-muted-foreground mt-2 font-medium">{currentMonthTotalServices.length + currentMonthSales.length} operações realizadas</p>
+            <div className="text-3xl font-black text-white">R$ {currentMonthTotalServices.length + currentMonthSales.length > 0 ? (totalRevenue / (currentMonthTotalServices.length + currentMonthSales.length)).toFixed(2) : '0.00'}</div>
+            <p className="text-xs text-slate-400 mt-2 font-medium">{currentMonthTotalServices.length + currentMonthSales.length} operações realizadas</p>
           </CardContent>
         </Card>
       </div>
